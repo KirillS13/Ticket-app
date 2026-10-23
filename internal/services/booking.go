@@ -15,7 +15,7 @@ func (service *Service) BookTicket(userId int64, eventId int64, seatId int64, ct
 	}
 	defer tx.Rollback(ctx)
 	var status string
-	req := `SELECT status FROM seats WHERE event_id = $1 AND seat_id = $2 FOR UPDATE`
+	req := `SELECT status FROM seats WHERE event_id = $1 AND id = $2 FOR UPDATE`
 	query := tx.QueryRow(ctx, req, eventId, seatId)
 	err = query.Scan(&status)
 	if err != nil {
@@ -33,7 +33,7 @@ func (service *Service) BookTicket(userId int64, eventId int64, seatId int64, ct
 		ExpiresAt: time.Now().Add(time.Hour * 24 * 7),
 		Status:    "Booked",
 	}
-	req = `UPDATE seats SET status = 'booked' WHERE event_id = $1 AND seat_id = $2`
+	req = `UPDATE seats SET status = 'booked' WHERE event_id = $1 AND id = $2`
 	_, err = tx.Exec(ctx, req, eventId, seatId)
 	if err != nil {
 		return fmt.Errorf("Failed to book ticket: %w", err)
@@ -79,7 +79,7 @@ func (service *Service) DeleteBooking(ctx context.Context, bookingId int64, user
 		return fmt.Errorf("create transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	req := `SELECT event_id, seat_id, status FROM bookings WHERE booking_id = $1 AND user_id = $2 FOR UPDATE`
+	req := `SELECT event_id, seat_id, status FROM bookings WHERE id = $1 AND user_id = $2 FOR UPDATE`
 	row := tx.QueryRow(ctx, req, bookingId, userId)
 	var seatId int64
 	var eventId int64
@@ -91,12 +91,12 @@ func (service *Service) DeleteBooking(ctx context.Context, bookingId int64, user
 	if currentStatus == "cancelled" {
 		return domain.ErrAlreadyCancelled
 	}
-	req = `UPDATE bookings SET status = $1 WHERE booking_id = $2 AND user_id = $3 `
+	req = `UPDATE bookings SET status = $1 WHERE id = $2 AND user_id = $3 `
 	_, err = tx.Exec(ctx, req, "cancelled", bookingId, userId)
 	if err != nil {
 		return fmt.Errorf("Failed to delete booking: %w", err)
 	}
-	req = `UPDATE seats SET status = $1 WHERE event_id = $2 AND seat_id = $3 `
+	req = `UPDATE seats SET status = $1 WHERE event_id = $2 AND id = $3 `
 	_, err = tx.Exec(ctx, req, "available", eventId, seatId)
 	if err != nil {
 		return fmt.Errorf("Failed to delete booking: %w", err)

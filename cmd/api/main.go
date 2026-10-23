@@ -41,7 +41,7 @@ func main() {
 	userService := services.NewUserService(db)
 
 	h := handlers.Handler{
-		UserService: userService,
+		Service: userService,
 	}
 
 	app := Application{
@@ -49,20 +49,22 @@ func main() {
 		handler: h,
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	go h.Service.StartWorker(ctx, 30*time.Second, 15*time.Minute)
+
 	app.route(secretKey)
 	go func() {
 		if err = app.server.Start(address); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			e.Logger.Fatal("shutting down the server", err)
 		}
 	}()
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
+	<-ctx.Done()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err = app.server.Shutdown(ctx); err != nil {
+	if err = app.server.Shutdown(shutdownCtx); err != nil {
 		e.Logger.Fatal(err)
 	}
 }

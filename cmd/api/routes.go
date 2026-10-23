@@ -18,6 +18,7 @@ func (app Application) route(jwtSecret string) {
 	protected := app.server.Group("")
 	protected.Use(middlewares.JwtAuthMiddleware(jwtSecret))
 	protected.POST("/bookings", app.handler.BookingHandler)
-	protected.GET("/booking/me", app.handler.CheckBookings)
+	protected.GET("/bookings/me", app.handler.CheckBookings)
 	protected.DELETE("/bookings/cancel", app.handler.CancelBooking)
+	protected.POST("/events/create", app.handler.CreateEvent)
 }

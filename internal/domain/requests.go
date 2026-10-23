@@ -19,3 +19,9 @@ type BookingRequest struct {
 type CancelBookingRequest struct {
 	BookingId int64 `json:"booking_id"`
 }
+
+type CreateEventRequest struct {
+	Name  string `json:"name"`
+	Room  string `json:"room"`
+	Price int    `json:"price"`
+}
