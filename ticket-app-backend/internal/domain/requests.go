@@ -12,8 +12,8 @@ type LoginRequest struct {
 }
 
 type BookingRequest struct {
-	EventId int64 `json:"event_id"`
-	SeatId  int64 `json:"seat_id"`
+	EventId int64    `json:"event_id"`
+	Seats   []string `json:"seats"`
 }
 
 type CancelBookingRequest struct {

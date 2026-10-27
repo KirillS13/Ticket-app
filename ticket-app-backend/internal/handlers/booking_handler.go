@@ -17,7 +17,10 @@ func (h *Handler) BookingHandler(c echo.Context) error {
 	if err := c.Bind(payload); err != nil {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
-	err := h.Service.BookTicket(userId, payload.EventId, payload.SeatId, c.Request().Context())
+	if len(payload.Seats) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No seats selected"})
+	}
+	err := h.Service.BookTicket(userId, payload.EventId, payload.Seats, c.Request().Context())
 	if err != nil {
 		if errors.Is(err, domain.ErrTicketBooked) {
 			return c.JSON(http.StatusBadRequest, err.Error())

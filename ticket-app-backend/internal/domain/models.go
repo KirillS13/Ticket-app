@@ -20,11 +20,11 @@ type Event struct {
 }
 
 type Seat struct {
-	Id         int64 `json:"id"`
-	EventId    int64 `json:"event_id"`
-	RowNumber  int   `json:"row_number"`
-	LineNumber int   `json:"line_number"`
-	Status     int   `json:"status"`
+	Id         int64  `json:"id"`
+	EventId    int64  `json:"event_id"`
+	RowNumber  int    `json:"row_number"`
+	LineNumber int    `json:"line_number"`
+	Status     string `json:"status"`
 }
 
 type Booking struct {

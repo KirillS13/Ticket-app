@@ -10,10 +10,15 @@ func (app Application) route(jwtSecret string) {
 
 	app.server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Content-Type", "Authorization"},
 	}))
+
 	app.server.GET("/", app.handler.HealthCheck)
 	app.server.POST("/register", app.handler.Registration)
 	app.server.POST("/login", app.handler.Login)
+	app.server.GET("/events", app.handler.ShowEvents)
+	app.server.GET("/events/:id/seats", app.handler.ShowSeats)
 
 	protected := app.server.Group("")
 	protected.Use(middlewares.JwtAuthMiddleware(jwtSecret))
