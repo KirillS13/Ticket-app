@@ -12,8 +12,8 @@ type LoginRequest struct {
 }
 
 type BookingRequest struct {
-	EventId int64    `json:"event_id"`
-	Seats   []string `json:"seats"`
+	EventId int64         `json:"event_id"`
+	Seats   []ReleaseSeat `json:"seats"`
 }
 
 type CancelBookingRequest struct {
@@ -24,4 +24,21 @@ type CreateEventRequest struct {
 	Name  string `json:"name"`
 	Room  string `json:"room"`
 	Price int    `json:"price"`
+}
+
+type HoldRequest struct {
+	Seats []HoldSeat `json:"seat"`
+}
+
+type HoldSeat struct {
+	Row    int `json:"row"`
+	Column int `json:"column"`
+}
+
+type ReleaseSeat struct {
+	Row    int `json:"row"`
+	Column int `json:"column"`
+}
+type ReleaseRequest struct {
+	Seats []ReleaseSeat `json:"seat"`
 }

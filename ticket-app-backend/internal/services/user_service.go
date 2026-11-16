@@ -7,14 +7,18 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type Service struct {
-	db *pgxpool.Pool
+	db          *pgxpool.Pool
+	redisClient *redis.Client
 }
 
-func NewUserService(db *pgxpool.Pool) *Service {
-	return &Service{db: db}
+func NewUserService(db *pgxpool.Pool, client *redis.Client) *Service {
+	return &Service{db: db,
+		redisClient: client,
+	}
 }
 
 func (service *Service) CreateUser(email string, username string, password string, ctx context.Context) error {

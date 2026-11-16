@@ -3,34 +3,59 @@ package services
 import (
 	"Ticket-app/internal/domain"
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/redis/go-redis/v9"
 )
 
-func (service *Service) BookTicket(userId int64, eventId int64, seats []string, ctx context.Context) error {
+func (service *Service) BookTicket(ctx context.Context, userId int64, eventId int64, seats []domain.ReleaseSeat) error {
+	keys := make([]string, 0, len(seats))
+	for _, seat := range seats {
+		key := fmt.Sprintf("hold:event:%d:seat:%d-%d", eventId, seat.Row, seat.Column)
+		id, err := service.redisClient.Get(ctx, key).Int64()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return domain.NotFound
+			}
+			return fmt.Errorf("get id: %w", err)
+		}
+		if id != userId {
+			return domain.ErrWrongUser
+		}
 
+		keys = append(keys, key)
+	}
 	tx, err := service.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("create transaction: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 	for _, seat := range seats {
-		var row, col int
-		if _, err = fmt.Sscanf(seat, "%d-%d", &row, &col); err != nil {
-			return fmt.Errorf("invalid seat format '%s': %w", seat, err)
-		}
 		var seatId int64
 		var seatStatus string
 
 		req := `SELECT id, status FROM seats WHERE event_id = $1 AND row_number = $2 AND line_number = $3 FOR UPDATE`
-		err = tx.QueryRow(ctx, req, eventId, row, col).Scan(&seatId, &seatStatus)
+		err = tx.QueryRow(ctx, req, eventId, seat.Row, seat.Column).Scan(&seatId, &seatStatus)
 
-		if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			insertSeatReq := `INSERT INTO seats (event_id, row_number, line_number, status) VALUES ($1, $2, $3, 'booked') RETURNING id`
-			err = tx.QueryRow(ctx, insertSeatReq, eventId, row, col).Scan(&seatId)
+			err = tx.QueryRow(ctx, insertSeatReq, eventId, seat.Row, seat.Column).Scan(&seatId)
 			if err != nil {
 				return fmt.Errorf("failed to create seat: %w", err)
 			}
+		} else if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return domain.ErrTicketBooked
+			}
+			return fmt.Errorf("get seat: %w", err)
 		} else {
 			if seatStatus == "booked" || seatStatus == "occupied" {
 				return domain.ErrTicketBooked
@@ -55,7 +80,10 @@ func (service *Service) BookTicket(userId int64, eventId int64, seats []string, 
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
-
+	err = service.redisClient.Del(ctx, keys...).Err()
+	if err != nil {
+		log.Printf("failed to delete hold keys from redis: %v", err)
+	}
 	return nil
 
 }
@@ -129,5 +157,55 @@ func (service *Service) DeleteBooking(ctx context.Context, bookingId int64, user
 	if err != nil {
 		return fmt.Errorf("Failed to delete booking: %w", err)
 	}
+	return nil
+}
+
+func (service *Service) HoldSeat(ctx context.Context, seats []domain.HoldSeat, eventID int64, userID int64) error {
+	lockedSeats := make([]string, 0, len(seats))
+	for _, seat := range seats {
+		key := fmt.Sprintf("hold:event:%d:seat:%d-%d", eventID, seat.Row, seat.Column)
+		ok, err := service.redisClient.SetNX(ctx, key, userID, time.Minute*5).Result()
+		if err != nil || !ok {
+			if len(lockedSeats) > 0 {
+				_ = service.redisClient.Del(ctx, lockedSeats...).Err()
+			}
+			if err != nil {
+				return fmt.Errorf("failed to set holdSeat: %w", err)
+			}
+			return domain.ErrAlreadyHeld
+		}
+		lockedSeats = append(lockedSeats, key)
+	}
+
+	return nil
+}
+
+func (service *Service) ReleaseSeat(ctx context.Context, seats []domain.ReleaseSeat, eventID int64, userID int64) error {
+	releaseSeats := make([]string, 0, len(seats))
+	for _, seat := range seats {
+		key := fmt.Sprintf("hold:event:%d:seat:%d-%d", eventID, seat.Row, seat.Column)
+		id, err := service.redisClient.Get(ctx, key).Result()
+		if errors.Is(err, redis.Nil) {
+			return domain.NotFound
+		}
+		if err != nil {
+			return fmt.Errorf("Failed to release holdSeat: %w", err)
+		}
+		idInt, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to release holdSeat: %w", err)
+		}
+		if idInt != userID {
+			return domain.ErrWrongUser
+		}
+		releaseSeats = append(releaseSeats, key)
+	}
+	if len(releaseSeats) > 0 {
+		err := service.redisClient.Del(ctx, releaseSeats...).Err()
+		if err != nil {
+			return fmt.Errorf("Failed to release holdSeat: %w", err)
+		}
+	}
+
 	return nil
 }

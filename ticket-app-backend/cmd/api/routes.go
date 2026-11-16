@@ -26,4 +26,6 @@ func (app Application) route(jwtSecret string) {
 	protected.GET("/bookings/me", app.handler.CheckBookings)
 	protected.DELETE("/bookings/cancel", app.handler.CancelBooking)
 	protected.POST("/events/create", app.handler.CreateEvent)
+	protected.POST("/events/:id/hold", app.handler.HoldSeat)
+	protected.POST("/events/:id/release", app.handler.ReleaseSeats)
 }

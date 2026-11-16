@@ -15,6 +15,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 )
 
 type Application struct {
@@ -24,7 +25,7 @@ type Application struct {
 
 func main() {
 	e := echo.New()
-	godotenv.Load(".env")
+	_ = godotenv.Load(".env")
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 
 	port := os.Getenv("APP_PORT")
@@ -38,7 +39,13 @@ func main() {
 		e.Logger.Fatal(err)
 	}
 	defer db.Close()
-	userService := services.NewUserService(db)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_ADDRESS"),
+		Password: "",
+		DB:       0,
+		Protocol: 2,
+	})
+	userService := services.NewUserService(db, redisClient)
 
 	h := handlers.Handler{
 		Service: userService,
