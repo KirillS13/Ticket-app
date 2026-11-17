@@ -31,30 +31,30 @@ func (service *Service) BookTicket(ctx context.Context, userId int64, eventId in
 
 		keys = append(keys, key)
 	}
+
 	tx, err := service.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("create transaction: %w", err)
 	}
-
 	defer tx.Rollback(ctx)
+
 	for _, seat := range seats {
 		var seatId int64
 		var seatStatus string
 
 		req := `SELECT id, status FROM seats WHERE event_id = $1 AND row_number = $2 AND line_number = $3 FOR UPDATE`
 		err = tx.QueryRow(ctx, req, eventId, seat.Row, seat.Column).Scan(&seatId, &seatStatus)
-
 		if errors.Is(err, pgx.ErrNoRows) {
 			insertSeatReq := `INSERT INTO seats (event_id, row_number, line_number, status) VALUES ($1, $2, $3, 'booked') RETURNING id`
 			err = tx.QueryRow(ctx, insertSeatReq, eventId, seat.Row, seat.Column).Scan(&seatId)
 			if err != nil {
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+					return domain.ErrTicketBooked
+				}
 				return fmt.Errorf("failed to create seat: %w", err)
 			}
 		} else if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				return domain.ErrTicketBooked
-			}
 			return fmt.Errorf("get seat: %w", err)
 		} else {
 			if seatStatus == "booked" || seatStatus == "occupied" {
@@ -80,12 +80,13 @@ func (service *Service) BookTicket(ctx context.Context, userId int64, eventId in
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
+
 	err = service.redisClient.Del(ctx, keys...).Err()
 	if err != nil {
 		log.Printf("failed to delete hold keys from redis: %v", err)
 	}
-	return nil
 
+	return nil
 }
 
 func (service *Service) GetBookings(ctx context.Context, userId int64) ([]domain.BookingResponse, error) {
