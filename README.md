@@ -1,61 +1,26 @@
-# Ticket Booking Platform 🎫
+# Ticket Booking Platform
 
-A full-stack event ticket booking application built with a high-concurrency **Go** backend and a modern web frontend. Designed with a focus on **Clean Architecture**, fault tolerance, and strict race condition prevention during peak ticket sales.
+A full-stack event ticket booking application built to handle concurrent seat reservations safely and reliably.
 
-## 🗂 Repository Structure
+## Architecture Overview
 
-```text
-Ticket-app/
-├── ticket-app-backend/     # REST API service (Go, Echo, PostgreSQL, Redis)
-└── ticket-app-frontend/    # Web client application
-```
+- **[Backend (`./ticket-app-backend`)](./ticket-app-backend/README.md):** Go REST API backed by PostgreSQL and Redis. Implements two-tier concurrency protection (Redis TTL seat holds + PostgreSQL transactional locking and unique constraint conflict mapping) verified under k6 load tests.
+- **Frontend (`./ticket-app-frontend`):** Interactive seat map and booking flow. *(Update path if your frontend folder has a different name.)*
 
-> 📖 Detailed API documentation, database schema, and backend setup instructions are available in [ticket-app-backend/README.md](./ticket-app-backend/README.md).
+## Key Features
 
----
+- **JWT Authentication:** Stateless user registration, login, and protected booking endpoints.
+- **Real-Time Seat Reservation:** Temporary seat holds in Redis prevent checkout collisions while users complete their order.
+- **Zero Double-Booking Guarantee:** Database-level constraints and row-level locking ensure each seat can only be sold once, even under simultaneous burst traffic.
+- **Containerized Environment:** One-command local startup via Docker Compose.
 
-## 🚀 Key Engineering Features
+## Quick Start
 
-* **Two-Layer Double-Booking Protection:**
-    * **Temporary Seat Holds (Redis):** Locks selected seats for a specific user before checkout (`hold:event:<id>:seat:<row>-<col>`).
-    * **Database-Level ACID Guarantees (PostgreSQL):** Uses pessimistic locking (`SELECT ... FOR UPDATE`) and unique constraints to eliminate race conditions.
-* **Load-Tested Concurrency (k6):** Verified under simultaneous load (100 concurrent virtual users competing for the exact same seat) — guaranteeing strictly 1 successful booking and 0 overbookings.
-* **Clean Architecture:** Clear separation of concerns across `domain`, `handlers`, `services`, and `middlewares` layers.
-* **JWT Authentication:** Stateless authentication securing user sessions and booking endpoints.
+Start the backend infrastructure (Go API, PostgreSQL, Redis):
 
----
-
-## 🛠 Tech Stack
-
-**Backend:**
-* **Language & Framework:** Go, Echo
-* **Databases & Caching:** PostgreSQL, Redis
-* **Infrastructure & Testing:** Docker, Docker Compose, k6 (load testing)
-
-**Frontend:**
-* **Package Manager:** pnpm
-* **Stack:** *(укажи свой стек из `package.json`, например: React / Next.js / TypeScript / Tailwind CSS)*
-
----
-
-## ⚡ Quick Start
-
-### 1. Start Backend & Databases
 ```bash
 cd ticket-app-backend
-cp .env.example .env
 docker-compose up -d --build
 ```
 
-### 2. Start Frontend
-```bash
-cd ticket-app-frontend
-pnpm install
-pnpm dev
-```
-
-### 3. Run Concurrency Load Test (Optional)
-```bash
-cd ticket-app-backend
-docker run --rm -i -v "${PWD}:/scripts" --network ticket-app-backend_default grafana/k6 run /scripts/load-test.js
-```
+For detailed architecture notes, API setup, and k6 load test benchmarks, see the [Backend Documentation](./ticket-app-backend/README.md).
