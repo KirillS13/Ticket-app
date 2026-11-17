@@ -1,18 +1,24 @@
-# v0 sandbox internal files
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
-.snowflake/
-.design-cache/
-.v0-trash/
-.vercel/
+# IDE
+.idea/
+.vscode/
 
-# Environment variables
-.env*.local
+# Go binaries
+main
+*.exe
+*.test
+*.out
 
-# Common ignores
-node_modules
-.next/
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS
 .DS_Store
+Thumbs.db
 
-ticket-app-backend/.env
+# Frontend / Node
+node_modules/
+dist/
+build/
+.next/
