@@ -2,6 +2,8 @@
 
 High-concurrency ticket booking backend built with **Go**, **PostgreSQL**, and **Redis**. Designed to guarantee zero double-bookings under heavy traffic spikes when hundreds of users compete for the exact same seat simultaneously.
 
+![Backend CI](https://github.com/KirillS13/Ticket-app/actions/workflows/ci.yml/badge.svg)
+
 ## Tech Stack
 
 - **Language:** Go

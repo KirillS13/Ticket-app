@@ -1,0 +1,42 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Go Build, Race Tests & Docker Check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./ticket-app-backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ticket-app-backend/go.mod
+          cache-dependency-path: ticket-app-backend/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run tests with race detector
+        run: go test -v -race ./...
+
+      - name: Build API binary
+        run: CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /dev/null ./cmd/api
+
+      - name: Verify Docker image build
+        working-directory: .
+        run: docker build -t ticket-app-backend:ci ./ticket-app-backend
