@@ -3,7 +3,9 @@ package main
 import (
 	"Ticket-app/internal/middlewares"
 
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func (app Application) route(jwtSecret string) {
@@ -13,12 +15,13 @@ func (app Application) route(jwtSecret string) {
 		AllowMethods: []string{"GET", "POST", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 	}))
-
+	app.server.Use(middlewares.HTTPMetricsMiddleware())
 	app.server.GET("/", app.handler.HealthCheck)
 	app.server.POST("/register", app.handler.Registration)
 	app.server.POST("/login", app.handler.Login)
 	app.server.GET("/events", app.handler.ShowEvents)
 	app.server.GET("/events/:id/seats", app.handler.ShowSeats)
+	app.server.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	protected := app.server.Group("")
 	protected.Use(middlewares.JwtAuthMiddleware(jwtSecret))

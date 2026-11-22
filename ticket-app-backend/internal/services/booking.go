@@ -2,6 +2,7 @@ package services
 
 import (
 	"Ticket-app/internal/domain"
+	"Ticket-app/internal/metrics"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +15,22 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func (service *Service) BookTicket(ctx context.Context, userId int64, eventId int64, seats []domain.ReleaseSeat) error {
+func (service *Service) BookTicket(ctx context.Context, userId int64, eventId int64, seats []domain.ReleaseSeat) (err error) {
+	defer func() {
+		if errors.Is(err, domain.ErrTicketBooked) {
+			metrics.BookingTotal.WithLabelValues("booked").Inc()
+			return
+		}
+		if errors.Is(err, domain.ErrWrongUser) || errors.Is(err, domain.NotFound) {
+			metrics.BookingTotal.WithLabelValues("wrong").Inc()
+			return
+		}
+		if err == nil {
+			metrics.BookingTotal.WithLabelValues("success").Inc()
+			return
+		}
+		metrics.BookingTotal.WithLabelValues("failed").Inc()
+	}()
 	keys := make([]string, 0, len(seats))
 	for _, seat := range seats {
 		key := fmt.Sprintf("hold:event:%d:seat:%d-%d", eventId, seat.Row, seat.Column)
@@ -85,7 +101,6 @@ func (service *Service) BookTicket(ctx context.Context, userId int64, eventId in
 	if err != nil {
 		log.Printf("failed to delete hold keys from redis: %v", err)
 	}
-
 	return nil
 }
 
